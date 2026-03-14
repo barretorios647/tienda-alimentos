@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabaseClient";
 
 type Product = {
   id: number;
@@ -12,89 +13,6 @@ type Product = {
 
 type CartItem = Product & { quantity: number };
 
-const defaultProducts: Product[] = [
-  {
-    id: 1,
-    name: "Arroz 1kg",
-    description: "Arroz blanco de grano largo",
-    price: 2,
-    category: "Alimentos",
-    image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: 2,
-    name: "Frijoles negros 1kg",
-    description: "Frijoles secos seleccionados",
-    price: 3,
-    category: "Alimentos",
-    image: "https://images.unsplash.com/photo-1515543904379-3d757afe72e1?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: 3,
-    name: "Huevos (docena)",
-    description: "Huevos frescos de granja",
-    price: 4,
-    category: "Alimentos",
-    image: "https://images.unsplash.com/photo-1506976785307-8732e854ad03?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: 4,
-    name: "Leche 1L",
-    description: "Leche entera pasteurizada",
-    price: 2.5,
-    category: "Alimentos",
-    image: "https://images.unsplash.com/photo-1550583724-b2692b85b150?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: 5,
-    name: "Azúcar 1kg",
-    description: "Azúcar refinada blanca",
-    price: 2,
-    category: "Alimentos",
-    image: "https://images.unsplash.com/photo-1581441363689-1f3c3c414635?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: 6,
-    name: "Detergente líquido",
-    description: "Detergente para ropa 1L",
-    price: 5,
-    category: "Aseo",
-    image: "https://images.unsplash.com/photo-1583947582886-f40ec95dd752?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: 7,
-    name: "Jabón de baño",
-    description: "Jabón corporal antibacterial",
-    price: 1.5,
-    category: "Aseo",
-    image: "https://images.unsplash.com/photo-1607006483225-5e4df0f69f0d?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: 8,
-    name: "Papel higiénico",
-    description: "Paquete de 6 rollos",
-    price: 4,
-    category: "Aseo",
-    image: "https://images.unsplash.com/photo-1583947215259-38e31be8751f?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: 9,
-    name: "Cloro 1L",
-    description: "Cloro desinfectante 1L",
-    price: 3,
-    category: "Aseo",
-    image: "https://images.unsplash.com/photo-1596704017254-9751f9f3d1e9?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: 10,
-    name: "Esponja de cocina",
-    description: "Esponja para lavar platos",
-    price: 1,
-    category: "Aseo",
-    image: "https://images.unsplash.com/photo-1585421514738-01798e348b17?q=80&w=1200&auto=format&fit=crop",
-  },
-];
-
 const CATEGORIES = ["Todos", "Alimentos", "Aseo"];
 
 export default function StorePage() {
@@ -103,12 +21,19 @@ export default function StorePage() {
   const [activeCategory, setActiveCategory] = useState("Todos");
   const [whatsapp, setWhatsapp] = useState("529999999999");
   const [showCart, setShowCart] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedProducts = localStorage.getItem("products");
-    const savedPhone = localStorage.getItem("whatsappNumber");
-    setProducts(savedProducts ? JSON.parse(savedProducts) : defaultProducts);
-    if (savedPhone) setWhatsapp(savedPhone);
+    async function loadData() {
+      const [{ data: productRows }, { data: settingRows }] = await Promise.all([
+        supabase.from("products").select("*").order("id"),
+        supabase.from("settings").select("value").eq("key", "whatsappNumber").single(),
+      ]);
+      if (productRows) setProducts(productRows);
+      if (settingRows?.value) setWhatsapp(settingRows.value);
+      setLoading(false);
+    }
+    loadData();
   }, []);
 
   const filtered =
@@ -244,107 +169,142 @@ export default function StorePage() {
           maxWidth: "1100px",
           margin: "0 auto",
           padding: "20px 24px 40px",
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-          gap: "20px",
         }}
       >
-        {filtered.map((product) => {
-          const inCart = cart.find((i) => i.id === product.id);
-          return (
-            <div
-              key={product.id}
-              style={{
-                background: "white",
-                borderRadius: "16px",
-                overflow: "hidden",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              <img
-                src={product.image}
-                alt={product.name}
-                style={{ width: "100%", height: "180px", objectFit: "cover", background: "#e5e7eb" }}
-              />
-              <div style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column" }}>
-                <strong style={{ fontSize: "16px", color: "#111827" }}>{product.name}</strong>
-                <p style={{ margin: "6px 0 12px", color: "#6b7280", fontSize: "14px", flex: 1 }}>
-                  {product.description}
-                </p>
+        {loading ? (
+          <p style={{ color: "#9ca3af", textAlign: "center", marginTop: "60px" }}>
+            Cargando productos…
+          </p>
+        ) : filtered.length === 0 ? (
+          <p style={{ color: "#9ca3af", textAlign: "center", marginTop: "60px" }}>
+            No hay productos en esta categoría.
+          </p>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+              gap: "20px",
+            }}
+          >
+            {filtered.map((product) => {
+              const inCart = cart.find((i) => i.id === product.id);
+              return (
                 <div
+                  key={product.id}
                   style={{
+                    background: "white",
+                    borderRadius: "16px",
+                    overflow: "hidden",
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginTop: "auto",
+                    flexDirection: "column",
                   }}
                 >
-                  <span style={{ fontSize: "18px", fontWeight: "bold", color: "#111827" }}>
-                    ${product.price.toFixed(2)}
-                  </span>
-                  {inCart ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <button
-                        onClick={() => removeFromCart(product.id)}
-                        style={{
-                          width: "32px",
-                          height: "32px",
-                          borderRadius: "8px",
-                          border: "none",
-                          background: "#f3f4f6",
-                          cursor: "pointer",
-                          fontSize: "18px",
-                          fontWeight: "bold",
-                          lineHeight: 1,
-                        }}
-                      >
-                        −
-                      </button>
-                      <span style={{ fontWeight: "bold", minWidth: "20px", textAlign: "center" }}>
-                        {inCart.quantity}
-                      </span>
-                      <button
-                        onClick={() => addToCart(product)}
-                        style={{
-                          width: "32px",
-                          height: "32px",
-                          borderRadius: "8px",
-                          border: "none",
-                          background: "#111827",
-                          color: "white",
-                          cursor: "pointer",
-                          fontSize: "18px",
-                          fontWeight: "bold",
-                          lineHeight: 1,
-                        }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => addToCart(product)}
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    style={{
+                      width: "100%",
+                      height: "180px",
+                      objectFit: "cover",
+                      background: "#e5e7eb",
+                    }}
+                  />
+                  <div style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column" }}>
+                    <strong style={{ fontSize: "16px", color: "#111827" }}>{product.name}</strong>
+                    <p
                       style={{
-                        padding: "9px 16px",
-                        background: "#111827",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "10px",
-                        cursor: "pointer",
-                        fontWeight: "bold",
+                        margin: "6px 0 12px",
+                        color: "#6b7280",
                         fontSize: "14px",
+                        flex: 1,
                       }}
                     >
-                      Agregar
-                    </button>
-                  )}
+                      {product.description}
+                    </p>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginTop: "auto",
+                      }}
+                    >
+                      <span
+                        style={{ fontSize: "18px", fontWeight: "bold", color: "#111827" }}
+                      >
+                        ${product.price.toFixed(2)}
+                      </span>
+                      {inCart ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <button
+                            onClick={() => removeFromCart(product.id)}
+                            style={{
+                              width: "32px",
+                              height: "32px",
+                              borderRadius: "8px",
+                              border: "none",
+                              background: "#f3f4f6",
+                              cursor: "pointer",
+                              fontSize: "18px",
+                              fontWeight: "bold",
+                              lineHeight: 1,
+                            }}
+                          >
+                            −
+                          </button>
+                          <span
+                            style={{
+                              fontWeight: "bold",
+                              minWidth: "20px",
+                              textAlign: "center",
+                            }}
+                          >
+                            {inCart.quantity}
+                          </span>
+                          <button
+                            onClick={() => addToCart(product)}
+                            style={{
+                              width: "32px",
+                              height: "32px",
+                              borderRadius: "8px",
+                              border: "none",
+                              background: "#111827",
+                              color: "white",
+                              cursor: "pointer",
+                              fontSize: "18px",
+                              fontWeight: "bold",
+                              lineHeight: 1,
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => addToCart(product)}
+                          style={{
+                            padding: "9px 16px",
+                            background: "#111827",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "10px",
+                            cursor: "pointer",
+                            fontWeight: "bold",
+                            fontSize: "14px",
+                          }}
+                        >
+                          Agregar
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        )}
       </main>
 
       {/* Cart drawer */}
@@ -358,12 +318,10 @@ export default function StorePage() {
             justifyContent: "flex-end",
           }}
         >
-          {/* Backdrop */}
           <div
             onClick={() => setShowCart(false)}
             style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }}
           />
-          {/* Panel */}
           <div
             style={{
               position: "relative",
@@ -403,7 +361,9 @@ export default function StorePage() {
 
             <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>
               {cart.length === 0 ? (
-                <p style={{ color: "#9ca3af", textAlign: "center", marginTop: "40px" }}>
+                <p
+                  style={{ color: "#9ca3af", textAlign: "center", marginTop: "40px" }}
+                >
                   Tu carrito está vacío
                 </p>
               ) : (
@@ -433,7 +393,9 @@ export default function StorePage() {
                     />
                     <div style={{ flex: 1 }}>
                       <strong style={{ fontSize: "15px" }}>{item.name}</strong>
-                      <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: "14px" }}>
+                      <p
+                        style={{ margin: "4px 0 0", color: "#6b7280", fontSize: "14px" }}
+                      >
                         ${item.price.toFixed(2)} × {item.quantity}
                       </p>
                     </div>
@@ -454,7 +416,13 @@ export default function StorePage() {
                       >
                         −
                       </button>
-                      <span style={{ fontWeight: "bold", minWidth: "18px", textAlign: "center" }}>
+                      <span
+                        style={{
+                          fontWeight: "bold",
+                          minWidth: "18px",
+                          textAlign: "center",
+                        }}
+                      >
                         {item.quantity}
                       </span>
                       <button
