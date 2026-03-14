@@ -261,7 +261,7 @@ export default function Home() {
             )}
           </aside>
         </div>
-      </main>
+      )}
     </div>
   );
 }
