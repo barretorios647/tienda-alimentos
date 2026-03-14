@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
+
+import { useEffect, useMemo, useState } from "react";
 
 type Product = {
   id: number;
@@ -11,194 +11,142 @@ type Product = {
   image: string;
 };
 
-type CartItem = Product & { quantity: number };
+const defaultProducts: Product[] = [
+  {
+    id: 1,
+    name: "Arroz 1kg",
+    description: "Arroz blanco de grano largo",
+    price: 2,
+    category: "Alimentos",
+    image: "https://via.placeholder.com/600x400?text=Arroz+1kg",
+  },
+  {
+    id: 2,
+    name: "Frijoles negros 1kg",
+    description: "Frijoles secos seleccionados",
+    price: 3,
+    category: "Alimentos",
+    image: "https://via.placeholder.com/600x400?text=Frijoles",
+  },
+  {
+    id: 3,
+    name: "Huevos (docena)",
+    description: "Huevos frescos de granja",
+    price: 4,
+    category: "Alimentos",
+    image: "https://via.placeholder.com/600x400?text=Huevos",
+  },
+  {
+    id: 4,
+    name: "Detergente líquido",
+    description: "Detergente para ropa 1L",
+    price: 5,
+    category: "Aseo",
+    image: "https://via.placeholder.com/600x400?text=Detergente",
+  },
+];
 
-const CATEGORIES = ["Todos", "Alimentos", "Aseo"];
-
-export default function StorePage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [activeCategory, setActiveCategory] = useState("Todos");
-  const [whatsapp, setWhatsapp] = useState("529999999999");
-  const [showCart, setShowCart] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadData() {
-      const [{ data: productRows }, { data: settingRows }] = await Promise.all([
-        supabase.from("products").select("*").order("id"),
-        supabase.from("settings").select("value").eq("key", "whatsappNumber").single(),
-      ]);
-      if (productRows) setProducts(productRows);
-      if (settingRows?.value) setWhatsapp(settingRows.value);
-      setLoading(false);
-    }
-    loadData();
-  }, []);
-
-  const filtered =
-    activeCategory === "Todos"
-      ? products
-      : products.filter((p) => p.category === activeCategory);
+export default function Home() {
+  const [products] = useState<Product[]>(defaultProducts);
+  const [cart, setCart] = useState<Product[]>([]);
 
   function addToCart(product: Product) {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.id === product.id);
-      if (existing) {
-        return prev.map((i) =>
-          i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i
-        );
-      }
-      return [...prev, { ...product, quantity: 1 }];
-    });
+    setCart([...cart, product]);
   }
 
-  function removeFromCart(id: number) {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.id === id);
-      if (!existing) return prev;
-      if (existing.quantity === 1) return prev.filter((i) => i.id !== id);
-      return prev.map((i) => (i.id === id ? { ...i, quantity: i.quantity - 1 } : i));
-    });
+  function removeFromCart(index: number) {
+    setCart(cart.filter((_, i) => i !== index));
   }
 
-  const totalItems = cart.reduce((sum, i) => sum + i.quantity, 0);
-  const totalPrice = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const total = useMemo(() => {
+    return cart.reduce((sum, item) => sum + item.price, 0);
+  }, [cart]);
 
   function sendWhatsApp() {
-    if (cart.length === 0) return;
-    const lines = cart.map(
-      (i) => `• ${i.name} x${i.quantity} — $${(i.price * i.quantity).toFixed(2)}`
-    );
-    const message = `Hola, me gustaría hacer el siguiente pedido:\n\n${lines.join(
-      "\n"
-    )}\n\nTotal: $${totalPrice.toFixed(2)}`;
-    const url = `https://wa.me/${whatsapp}?text=${encodeURIComponent(message)}`;
-    window.open(url, "_blank");
+    if (cart.length === 0) {
+      alert("El carrito está vacío");
+      return;
+    }
+
+    let message = "Hola, quiero hacer este pedido:%0A%0A";
+
+    cart.forEach((item) => {
+      message += `• ${item.name} - $${item.price}%0A`;
+    });
+
+    message += `%0ATotal: $${total}`;
+    window.open(`https://wa.me/529999999999?text=${message}`, "_blank");
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f5f7fb", fontFamily: "Arial, sans-serif" }}>
-      {/* Header */}
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f5f7fb",
+        fontFamily: "Arial, sans-serif",
+        color: "#111827",
+      }}
+    >
       <header
         style={{
           background: "#111827",
           color: "white",
-          padding: "0 24px",
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
+          padding: "22px 30px",
           display: "flex",
-          alignItems: "center",
           justifyContent: "space-between",
-          height: "64px",
-          boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
+          alignItems: "center",
         }}
       >
-        <h1 style={{ margin: 0, fontSize: "20px", fontWeight: "bold" }}>
-          🛒 Tienda de alimentos
-        </h1>
-        <button
-          onClick={() => setShowCart(true)}
+        <div>
+          <h1 style={{ margin: 0, fontSize: "28px" }}>Mini Mercado</h1>
+          <p style={{ margin: "6px 0 0 0", color: "#d1d5db" }}>
+            Alimentos y productos de aseo
+          </p>
+        </div>
+
+        <a
+          href="/admin/login"
           style={{
-            background: "#25d366",
-            color: "white",
-            border: "none",
+            background: "white",
+            color: "#111827",
+            padding: "10px 16px",
             borderRadius: "10px",
-            padding: "10px 18px",
-            cursor: "pointer",
+            textDecoration: "none",
             fontWeight: "bold",
-            fontSize: "15px",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
           }}
         >
-          🛍️ Carrito
-          {totalItems > 0 && (
-            <span
-              style={{
-                background: "#dc2626",
-                borderRadius: "999px",
-                padding: "2px 8px",
-                fontSize: "13px",
-              }}
-            >
-              {totalItems}
-            </span>
-          )}
-        </button>
+          Admin
+        </a>
       </header>
 
-      {/* Category tabs */}
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          padding: "20px 24px 0",
-          maxWidth: "1100px",
-          margin: "0 auto",
-          flexWrap: "wrap",
-        }}
-      >
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            style={{
-              padding: "9px 20px",
-              borderRadius: "999px",
-              border: "none",
-              cursor: "pointer",
-              fontWeight: "bold",
-              fontSize: "14px",
-              background: activeCategory === cat ? "#111827" : "white",
-              color: activeCategory === cat ? "white" : "#374151",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-              transition: "all 0.15s",
-            }}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
+      <main style={{ padding: "30px", maxWidth: "1400px", margin: "0 auto" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "2fr 1fr",
+            gap: "24px",
+            alignItems: "start",
+          }}
+        >
+          <section>
+            <h2 style={{ marginBottom: "18px" }}>Productos disponibles</h2>
 
-      {/* Product grid */}
-      <main
-        style={{
-          maxWidth: "1100px",
-          margin: "0 auto",
-          padding: "20px 24px 40px",
-        }}
-      >
-        {loading ? (
-          <p style={{ color: "#9ca3af", textAlign: "center", marginTop: "60px" }}>
-            Cargando productos…
-          </p>
-        ) : filtered.length === 0 ? (
-          <p style={{ color: "#9ca3af", textAlign: "center", marginTop: "60px" }}>
-            No hay productos en esta categoría.
-          </p>
-        ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-              gap: "20px",
-            }}
-          >
-            {filtered.map((product) => {
-              const inCart = cart.find((i) => i.id === product.id);
-              return (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
+                gap: "18px",
+              }}
+            >
+              {products.map((product) => (
                 <div
                   key={product.id}
                   style={{
                     background: "white",
                     borderRadius: "16px",
-                    overflow: "hidden",
-                    boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
-                    display: "flex",
-                    flexDirection: "column",
+                    padding: "18px",
+                    boxShadow: "0 8px 30px rgba(0,0,0,0.06)",
+                    border: "1px solid #eef2f7",
                   }}
                 >
                   <img
@@ -208,283 +156,110 @@ export default function StorePage() {
                       width: "100%",
                       height: "180px",
                       objectFit: "cover",
+                      borderRadius: "12px",
+                      marginBottom: "14px",
                       background: "#e5e7eb",
                     }}
                   />
-                  <div style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column" }}>
-                    <strong style={{ fontSize: "16px", color: "#111827" }}>{product.name}</strong>
-                    <p
-                      style={{
-                        margin: "6px 0 12px",
-                        color: "#6b7280",
-                        fontSize: "14px",
-                        flex: 1,
-                      }}
-                    >
-                      {product.description}
-                    </p>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginTop: "auto",
-                      }}
-                    >
-                      <span
-                        style={{ fontSize: "18px", fontWeight: "bold", color: "#111827" }}
-                      >
-                        ${product.price.toFixed(2)}
-                      </span>
-                      {inCart ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <button
-                            onClick={() => removeFromCart(product.id)}
-                            style={{
-                              width: "32px",
-                              height: "32px",
-                              borderRadius: "8px",
-                              border: "none",
-                              background: "#f3f4f6",
-                              cursor: "pointer",
-                              fontSize: "18px",
-                              fontWeight: "bold",
-                              lineHeight: 1,
-                            }}
-                          >
-                            −
-                          </button>
-                          <span
-                            style={{
-                              fontWeight: "bold",
-                              minWidth: "20px",
-                              textAlign: "center",
-                            }}
-                          >
-                            {inCart.quantity}
-                          </span>
-                          <button
-                            onClick={() => addToCart(product)}
-                            style={{
-                              width: "32px",
-                              height: "32px",
-                              borderRadius: "8px",
-                              border: "none",
-                              background: "#111827",
-                              color: "white",
-                              cursor: "pointer",
-                              fontSize: "18px",
-                              fontWeight: "bold",
-                              lineHeight: 1,
-                            }}
-                          >
-                            +
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => addToCart(product)}
-                          style={{
-                            padding: "9px 16px",
-                            background: "#111827",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "10px",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          Agregar
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </main>
 
-      {/* Cart drawer */}
-      {showCart && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 200,
-            display: "flex",
-            justifyContent: "flex-end",
-          }}
-        >
-          <div
-            onClick={() => setShowCart(false)}
-            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }}
-          />
-          <div
-            style={{
-              position: "relative",
-              background: "white",
-              width: "100%",
-              maxWidth: "420px",
-              height: "100%",
-              display: "flex",
-              flexDirection: "column",
-              boxShadow: "-4px 0 30px rgba(0,0,0,0.15)",
-            }}
-          >
-            <div
-              style={{
-                padding: "20px 24px",
-                borderBottom: "1px solid #e5e7eb",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <h2 style={{ margin: 0 }}>Tu carrito</h2>
-              <button
-                onClick={() => setShowCart(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: "24px",
-                  cursor: "pointer",
-                  color: "#6b7280",
-                  lineHeight: 1,
-                }}
-              >
-                ×
-              </button>
-            </div>
+                  <h3 style={{ margin: "0 0 8px 0" }}>{product.name}</h3>
+                  <p style={{ color: "#4b5563", minHeight: "40px" }}>
+                    {product.description}
+                  </p>
 
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>
-              {cart.length === 0 ? (
-                <p
-                  style={{ color: "#9ca3af", textAlign: "center", marginTop: "40px" }}
-                >
-                  Tu carrito está vacío
-                </p>
-              ) : (
-                cart.map((item) => (
-                  <div
-                    key={item.id}
+                  <p style={{ margin: "8px 0", fontSize: "14px", color: "#6b7280" }}>
+                    Categoría: <strong>{product.category}</strong>
+                  </p>
+
+                  <p style={{ fontSize: "24px", fontWeight: "bold", margin: "10px 0" }}>
+                    ${product.price}
+                  </p>
+
+                  <button
+                    onClick={() => addToCart(product)}
                     style={{
-                      display: "flex",
-                      gap: "14px",
-                      alignItems: "center",
-                      marginBottom: "16px",
-                      paddingBottom: "16px",
-                      borderBottom: "1px solid #f3f4f6",
+                      width: "100%",
+                      padding: "12px",
+                      border: "none",
+                      borderRadius: "10px",
+                      background: "#111827",
+                      color: "white",
+                      cursor: "pointer",
+                      fontWeight: "bold",
                     }}
                   >
-                    <img
-                      src={item.image}
-                      alt={item.name}
+                    Agregar al carrito
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <aside
+            style={{
+              background: "white",
+              borderRadius: "16px",
+              padding: "20px",
+              boxShadow: "0 8px 30px rgba(0,0,0,0.06)",
+            }}
+          >
+            <h2 style={{ marginTop: 0 }}>Carrito</h2>
+
+            {cart.length === 0 ? (
+              <p style={{ color: "#6b7280" }}>No hay productos agregados.</p>
+            ) : (
+              <>
+                <div style={{ display: "grid", gap: "12px" }}>
+                  {cart.map((item, index) => (
+                    <div
+                      key={index}
                       style={{
-                        width: "60px",
-                        height: "60px",
-                        objectFit: "cover",
-                        borderRadius: "10px",
-                        background: "#e5e7eb",
-                        flexShrink: 0,
+                        borderBottom: "1px solid #e5e7eb",
+                        paddingBottom: "10px",
                       }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <strong style={{ fontSize: "15px" }}>{item.name}</strong>
-                      <p
-                        style={{ margin: "4px 0 0", color: "#6b7280", fontSize: "14px" }}
-                      >
-                        ${item.price.toFixed(2)} × {item.quantity}
-                      </p>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    >
+                      <strong>{item.name}</strong>
+                      <div style={{ color: "#6b7280", margin: "4px 0" }}>${item.price}</div>
                       <button
-                        onClick={() => removeFromCart(item.id)}
+                        onClick={() => removeFromCart(index)}
                         style={{
-                          width: "28px",
-                          height: "28px",
-                          borderRadius: "6px",
+                          padding: "8px 10px",
                           border: "none",
-                          background: "#f3f4f6",
-                          cursor: "pointer",
-                          fontSize: "16px",
-                          fontWeight: "bold",
-                          lineHeight: 1,
-                        }}
-                      >
-                        −
-                      </button>
-                      <span
-                        style={{
-                          fontWeight: "bold",
-                          minWidth: "18px",
-                          textAlign: "center",
-                        }}
-                      >
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => addToCart(item)}
-                        style={{
-                          width: "28px",
-                          height: "28px",
-                          borderRadius: "6px",
-                          border: "none",
-                          background: "#111827",
+                          borderRadius: "8px",
+                          background: "#dc2626",
                           color: "white",
                           cursor: "pointer",
-                          fontSize: "16px",
-                          fontWeight: "bold",
-                          lineHeight: 1,
                         }}
                       >
-                        +
+                        Quitar
                       </button>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {cart.length > 0 && (
-              <div style={{ padding: "20px 24px", borderTop: "1px solid #e5e7eb" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: "16px",
-                    fontSize: "18px",
-                    fontWeight: "bold",
-                  }}
-                >
-                  <span>Total</span>
-                  <span>${totalPrice.toFixed(2)}</span>
+                  ))}
                 </div>
+
+                <p style={{ marginTop: "16px", fontSize: "18px" }}>
+                  <strong>Total: ${total}</strong>
+                </p>
+
                 <button
                   onClick={sendWhatsApp}
                   style={{
                     width: "100%",
-                    padding: "15px",
-                    background: "#25d366",
-                    color: "white",
+                    marginTop: "10px",
+                    padding: "14px",
+                    borderRadius: "10px",
                     border: "none",
-                    borderRadius: "12px",
+                    background: "#16a34a",
+                    color: "white",
                     cursor: "pointer",
                     fontWeight: "bold",
-                    fontSize: "16px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "10px",
                   }}
                 >
-                  📲 Pedir por WhatsApp
+                  Pedir por WhatsApp
                 </button>
-              </div>
+              </>
             )}
-          </div>
+          </aside>
         </div>
       )}
     </div>

@@ -1,93 +1,95 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
 
   function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    if (password === "admin123") {
+
+    const adminUser = "admin";
+    const adminPass = "123456";
+
+    if (username === adminUser && password === adminPass) {
       localStorage.setItem("adminLoggedIn", "true");
       router.push("/admin");
-    } else {
-      setError("Contraseña incorrecta");
+      return;
     }
+
+    alert("Usuario o contraseña incorrectos");
   }
 
   return (
     <div
       style={{
         minHeight: "100vh",
-        background: "#f5f7fb",
-        fontFamily: "Arial, sans-serif",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        fontFamily: "Arial",
+        background: "#f5f5f5",
       }}
     >
-      <div
+      <form
+        onSubmit={handleLogin}
         style={{
           background: "white",
-          borderRadius: "18px",
-          padding: "40px",
-          boxShadow: "0 8px 30px rgba(0,0,0,0.08)",
-          width: "100%",
-          maxWidth: "380px",
+          padding: "30px",
+          borderRadius: "12px",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+          width: "350px",
         }}
       >
-        <h1 style={{ margin: "0 0 8px 0", fontSize: "24px", color: "#111827" }}>
-          Administración
-        </h1>
-        <p style={{ margin: "0 0 28px 0", color: "#6b7280" }}>
-          Ingresa tu contraseña para continuar
-        </p>
-        <form onSubmit={handleLogin}>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setError("");
-            }}
-            placeholder="Contraseña"
-            autoFocus
-            style={{
-              width: "100%",
-              padding: "12px",
-              borderRadius: "10px",
-              border: error ? "1px solid #dc2626" : "1px solid #d1d5db",
-              marginBottom: "8px",
-              fontSize: "16px",
-              boxSizing: "border-box",
-            }}
-          />
-          {error && (
-            <p style={{ color: "#dc2626", margin: "0 0 12px 0", fontSize: "14px" }}>
-              {error}
-            </p>
-          )}
-          <button
-            type="submit"
-            style={{
-              width: "100%",
-              padding: "13px",
-              border: "none",
-              borderRadius: "10px",
-              background: "#111827",
-              color: "white",
-              cursor: "pointer",
-              fontWeight: "bold",
-              fontSize: "16px",
-              marginTop: "8px",
-            }}
-          >
-            Entrar
-          </button>
-        </form>
-      </div>
+        <h1 style={{ marginBottom: "20px" }}>Login administrador</h1>
+
+        <input
+          type="text"
+          placeholder="Usuario"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "12px",
+            marginBottom: "12px",
+            borderRadius: "8px",
+            border: "1px solid #ccc",
+          }}
+        />
+
+        <input
+          type="password"
+          placeholder="Contraseña"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "12px",
+            marginBottom: "16px",
+            borderRadius: "8px",
+            border: "1px solid #ccc",
+          }}
+        />
+
+        <button
+          type="submit"
+          style={{
+            width: "100%",
+            padding: "12px",
+            border: "none",
+            borderRadius: "8px",
+            background: "#111827",
+            color: "white",
+            cursor: "pointer",
+          }}
+        >
+          Entrar
+        </button>
+      </form>
     </div>
   );
 }

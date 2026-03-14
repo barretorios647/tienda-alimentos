@@ -1,7 +1,7 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabaseClient";
 
 type Product = {
   id: number;
@@ -12,52 +12,137 @@ type Product = {
   image: string;
 };
 
+const defaultProducts: Product[] = [
+  {
+    id: 1,
+    name: "Arroz 1kg",
+    description: "Arroz blanco de grano largo",
+    price: 2,
+    category: "Alimentos",
+    image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: 2,
+    name: "Frijoles negros 1kg",
+    description: "Frijoles secos seleccionados",
+    price: 3,
+    category: "Alimentos",
+    image: "https://images.unsplash.com/photo-1515543904379-3d757afe72e1?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: 3,
+    name: "Huevos (docena)",
+    description: "Huevos frescos de granja",
+    price: 4,
+    category: "Alimentos",
+    image: "https://images.unsplash.com/photo-1506976785307-8732e854ad03?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: 4,
+    name: "Leche 1L",
+    description: "Leche entera pasteurizada",
+    price: 2.5,
+    category: "Alimentos",
+    image: "https://images.unsplash.com/photo-1550583724-b2692b85b150?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: 5,
+    name: "Azúcar 1kg",
+    description: "Azúcar refinada blanca",
+    price: 2,
+    category: "Alimentos",
+    image: "https://images.unsplash.com/photo-1581441363689-1f3c3c414635?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: 6,
+    name: "Detergente líquido",
+    description: "Detergente para ropa 1L",
+    price: 5,
+    category: "Aseo",
+    image: "https://images.unsplash.com/photo-1583947582886-f40ec95dd752?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: 7,
+    name: "Jabón de baño",
+    description: "Jabón corporal antibacterial",
+    price: 1.5,
+    category: "Aseo",
+    image: "https://images.unsplash.com/photo-1607006483225-5e4df0f69f0d?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: 8,
+    name: "Papel higiénico",
+    description: "Paquete de 6 rollos",
+    price: 4,
+    category: "Aseo",
+    image: "https://images.unsplash.com/photo-1583947215259-38e31be8751f?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: 9,
+    name: "Cloro 1L",
+    description: "Cloro desinfectante 1L",
+    price: 3,
+    category: "Aseo",
+    image: "https://images.unsplash.com/photo-1596704017254-9751f9f3d1e9?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: 10,
+    name: "Esponja de cocina",
+    description: "Esponja para lavar platos",
+    price: 1,
+    category: "Aseo",
+    image: "https://images.unsplash.com/photo-1585421514738-01798e348b17?q=80&w=1200&auto=format&fit=crop",
+  },
+];
+
 export default function AdminPage() {
   const router = useRouter();
+
   const [authorized, setAuthorized] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [whatsapp, setWhatsapp] = useState("529999999999");
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("Alimentos");
   const [image, setImage] = useState("");
+
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const loggedIn = localStorage.getItem("adminLoggedIn");
+
     if (loggedIn !== "true") {
       router.push("/admin/login");
       return;
     }
-    setAuthorized(true);
-    loadData();
-  }, [router]);
 
-  async function loadData() {
-    const [{ data: productRows }, { data: settingRow }] = await Promise.all([
-      supabase.from("products").select("*").order("id"),
-      supabase.from("settings").select("value").eq("key", "whatsappNumber").single(),
-    ]);
-    if (productRows) setProducts(productRows);
-    if (settingRow?.value) setWhatsapp(settingRow.value);
-  }
+    setAuthorized(true);
+
+    const savedProducts = localStorage.getItem("products");
+    const savedPhone = localStorage.getItem("whatsappNumber");
+
+    if (savedProducts) {
+      setProducts(JSON.parse(savedProducts));
+    } else {
+      setProducts(defaultProducts);
+      localStorage.setItem("products", JSON.stringify(defaultProducts));
+    }
+
+    if (savedPhone) {
+      setWhatsapp(savedPhone);
+    }
+  }, [router]);
 
   function logout() {
     localStorage.removeItem("adminLoggedIn");
     router.push("/admin/login");
   }
 
-  async function saveWhatsapp() {
-    const { error } = await supabase
-      .from("settings")
-      .upsert({ key: "whatsappNumber", value: whatsapp }, { onConflict: "key" });
-    if (error) {
-      alert("Error al guardar: " + error.message);
-    } else {
-      alert("Número de WhatsApp guardado");
-    }
+  function saveWhatsapp() {
+    localStorage.setItem("whatsappNumber", whatsapp);
+    alert("Número de WhatsApp guardado");
   }
 
   function clearForm() {
@@ -69,37 +154,50 @@ export default function AdminPage() {
     setEditingId(null);
   }
 
-  async function addOrUpdateProduct() {
+  function saveProducts(updatedProducts: Product[]) {
+    setProducts(updatedProducts);
+    localStorage.setItem("products", JSON.stringify(updatedProducts));
+  }
+
+  function addOrUpdateProduct() {
     if (!name || !description || !price || !category || !image) {
       alert("Completa todos los campos");
       return;
     }
-    setSaving(true);
-    if (editingId !== null) {
-      const { error } = await supabase
-        .from("products")
-        .update({ name, description, price: Number(price), category, image })
-        .eq("id", editingId);
-      if (error) {
-        alert("Error al actualizar: " + error.message);
-      } else {
-        await loadData();
-        clearForm();
-        alert("Producto actualizado");
-      }
-    } else {
-      const { error } = await supabase
-        .from("products")
-        .insert({ name, description, price: Number(price), category, image });
-      if (error) {
-        alert("Error al agregar: " + error.message);
-      } else {
-        await loadData();
-        clearForm();
-        alert("Producto agregado");
-      }
+
+    if (editingId) {
+      const updatedProducts = products.map((product) =>
+        product.id === editingId
+          ? {
+              ...product,
+              name,
+              description,
+              price: Number(price),
+              category,
+              image,
+            }
+          : product
+      );
+
+      saveProducts(updatedProducts);
+      clearForm();
+      alert("Producto actualizado");
+      return;
     }
-    setSaving(false);
+
+    const newProduct: Product = {
+      id: Date.now(),
+      name,
+      description,
+      price: Number(price),
+      category,
+      image,
+    };
+
+    const updatedProducts = [...products, newProduct];
+    saveProducts(updatedProducts);
+    clearForm();
+    alert("Producto agregado");
   }
 
   function editProduct(product: Product) {
@@ -112,13 +210,16 @@ export default function AdminPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function deleteProduct(id: number) {
-    const { error } = await supabase.from("products").delete().eq("id", id);
-    if (error) {
-      alert("Error al eliminar: " + error.message);
-    } else {
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-    }
+  function deleteProduct(id: number) {
+    const updatedProducts = products.filter((product) => product.id !== id);
+    saveProducts(updatedProducts);
+  }
+
+  function resetStore() {
+    localStorage.setItem("products", JSON.stringify(defaultProducts));
+    setProducts(defaultProducts);
+    clearForm();
+    alert("Productos restablecidos");
   }
 
   if (!authorized) return null;
@@ -132,8 +233,12 @@ export default function AdminPage() {
         padding: "30px",
       }}
     >
-      <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
-        {/* Header */}
+      <div
+        style={{
+          maxWidth: "1100px",
+          margin: "0 auto",
+        }}
+      >
         <div
           style={{
             background: "#111827",
@@ -154,6 +259,7 @@ export default function AdminPage() {
               Gestiona productos, fotos y número de WhatsApp
             </p>
           </div>
+
           <button
             onClick={logout}
             style={{
@@ -178,7 +284,6 @@ export default function AdminPage() {
             alignItems: "start",
           }}
         >
-          {/* WhatsApp */}
           <div
             style={{
               background: "white",
@@ -188,6 +293,7 @@ export default function AdminPage() {
             }}
           >
             <h2>Número de WhatsApp</h2>
+
             <input
               value={whatsapp}
               onChange={(e) => setWhatsapp(e.target.value)}
@@ -198,9 +304,9 @@ export default function AdminPage() {
                 borderRadius: "10px",
                 border: "1px solid #d1d5db",
                 marginBottom: "12px",
-                boxSizing: "border-box",
               }}
             />
+
             <button
               onClick={saveWhatsapp}
               style={{
@@ -217,7 +323,6 @@ export default function AdminPage() {
             </button>
           </div>
 
-          {/* Add / edit product */}
           <div
             style={{
               background: "white",
@@ -226,28 +331,34 @@ export default function AdminPage() {
               boxShadow: "0 8px 30px rgba(0,0,0,0.06)",
             }}
           >
-            <h2>{editingId !== null ? "Editar producto" : "Agregar producto"}</h2>
-            {(
-              [
-                { value: name, setter: setName, placeholder: "Nombre del producto" },
-                { value: description, setter: setDescription, placeholder: "Descripción" },
-              ] as { value: string; setter: (v: string) => void; placeholder: string }[]
-            ).map(({ value, setter, placeholder }) => (
-              <input
-                key={placeholder}
-                value={value}
-                onChange={(e) => setter(e.target.value)}
-                placeholder={placeholder}
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  borderRadius: "10px",
-                  border: "1px solid #d1d5db",
-                  marginBottom: "10px",
-                  boxSizing: "border-box",
-                }}
-              />
-            ))}
+            <h2>{editingId ? "Editar producto" : "Agregar producto"}</h2>
+
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Nombre del producto"
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: "10px",
+                border: "1px solid #d1d5db",
+                marginBottom: "10px",
+              }}
+            />
+
+            <input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Descripción"
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: "10px",
+                border: "1px solid #d1d5db",
+                marginBottom: "10px",
+              }}
+            />
+
             <input
               value={price}
               onChange={(e) => setPrice(e.target.value)}
@@ -259,9 +370,9 @@ export default function AdminPage() {
                 borderRadius: "10px",
                 border: "1px solid #d1d5db",
                 marginBottom: "10px",
-                boxSizing: "border-box",
               }}
             />
+
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -271,12 +382,12 @@ export default function AdminPage() {
                 borderRadius: "10px",
                 border: "1px solid #d1d5db",
                 marginBottom: "10px",
-                boxSizing: "border-box",
               }}
             >
               <option value="Alimentos">Alimentos</option>
               <option value="Aseo">Aseo</option>
             </select>
+
             <input
               value={image}
               onChange={(e) => setImage(e.target.value)}
@@ -287,9 +398,9 @@ export default function AdminPage() {
                 borderRadius: "10px",
                 border: "1px solid #d1d5db",
                 marginBottom: "12px",
-                boxSizing: "border-box",
               }}
             />
+
             {image && (
               <img
                 src={image}
@@ -304,27 +415,23 @@ export default function AdminPage() {
                 }}
               />
             )}
+
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               <button
                 onClick={addOrUpdateProduct}
-                disabled={saving}
                 style={{
                   padding: "12px 16px",
                   border: "none",
                   borderRadius: "10px",
-                  background: editingId !== null ? "#2563eb" : "#16a34a",
+                  background: editingId ? "#2563eb" : "#16a34a",
                   color: "white",
-                  cursor: saving ? "not-allowed" : "pointer",
+                  cursor: "pointer",
                   fontWeight: "bold",
-                  opacity: saving ? 0.7 : 1,
                 }}
               >
-                {saving
-                  ? "Guardando…"
-                  : editingId !== null
-                  ? "Guardar cambios"
-                  : "Guardar producto"}
+                {editingId ? "Guardar cambios" : "Guardar producto"}
               </button>
+
               <button
                 onClick={clearForm}
                 style={{
@@ -343,7 +450,6 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Product list */}
         <div
           style={{
             background: "white",
@@ -354,6 +460,7 @@ export default function AdminPage() {
           }}
         >
           <h2>Productos actuales</h2>
+
           {products.length === 0 ? (
             <p>No hay productos guardados</p>
           ) : (
@@ -382,6 +489,7 @@ export default function AdminPage() {
                       background: "#e5e7eb",
                     }}
                   />
+
                   <div>
                     <strong style={{ fontSize: "18px" }}>{product.name}</strong>
                     <p style={{ margin: "8px 0", color: "#4b5563" }}>{product.description}</p>
@@ -391,6 +499,7 @@ export default function AdminPage() {
                     <p style={{ margin: "6px 0 12px 0" }}>
                       <strong>Categoría:</strong> {product.category}
                     </p>
+
                     <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                       <button
                         onClick={() => editProduct(product)}
@@ -406,6 +515,7 @@ export default function AdminPage() {
                       >
                         Editar
                       </button>
+
                       <button
                         onClick={() => deleteProduct(product.id)}
                         style={{
@@ -426,6 +536,22 @@ export default function AdminPage() {
               ))}
             </div>
           )}
+
+          <button
+            onClick={resetStore}
+            style={{
+              marginTop: "20px",
+              padding: "12px 16px",
+              background: "#111827",
+              color: "white",
+              border: "none",
+              cursor: "pointer",
+              borderRadius: "10px",
+              fontWeight: "bold",
+            }}
+          >
+            Restablecer productos por defecto
+          </button>
         </div>
       </div>
     </div>
